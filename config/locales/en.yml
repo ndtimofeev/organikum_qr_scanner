@@ -1,3 +1,13 @@
 en:
   label_qr_scanner: "QR scanner"
-  text_qr_scanner_hint: "Point the camera at a QR code. If it encodes a URL, you'll be taken there automatically."
+  text_qr_scanner_hint: "Point the camera at a QR code for one of this Redmine's issues. On a successful scan, the configured field is decremented by 1 and you're taken to that issue."
+
+  field_qr_scanner_custom_field: "Field to decrement"
+  text_qr_scanner_custom_field_hint: "Only decrementable integer fields (from redmine-custom-decrement-field) are offered here - this list is empty if that plugin isn't installed."
+
+  notice_qr_scanner_decremented: "Decremented"
+  error_qr_scanner_unrecognized_url: "That QR code doesn't point at one of this Redmine's issues"
+  error_qr_scanner_not_configured: "No decrementable field is configured for the QR scanner (Administration > Plugins > QR Scanner > Configure)"
+  error_qr_scanner_field_missing: "This issue doesn't have the configured field"
+  error_qr_scanner_no_permission: "You don't have permission to do that on this issue"
+  error_qr_scanner_exhausted: "Value is already zero (or less), decrement is unavailable"

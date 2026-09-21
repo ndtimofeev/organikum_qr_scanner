@@ -1,0 +1,15 @@
+<p>
+  <label for="settings_custom_field_id"><%= l(:field_qr_scanner_custom_field) %></label>
+  <%# Restricted to decrementable_int fields on purpose: this plugin only
+      knows how to "decrement" a field that derives its value from tagged
+      issue comments (see QrScannerController#scan) - a plain int, or any
+      other format, has no such convention to hook into, so it's not
+      offered here at all. If redmine-custom-decrement-field isn't
+      installed, this list is simply empty. %>
+  <%= select_tag 'settings[custom_field_id]',
+        options_for_select(
+          IssueCustomField.where(field_format: 'decrementable_int').order(:name).pluck(:name, :id),
+          settings['custom_field_id'].to_s),
+        include_blank: true %>
+  <em class="info"><%= l(:text_qr_scanner_custom_field_hint) %></em>
+</p>
