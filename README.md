@@ -33,6 +33,16 @@ away to the issue on every single scan.
   draws its own start button, camera picker, and viewfinder; this plugin
   only provides the page and the div it renders into. The server never
   sees anything but the decoded *text* of a successful scan.
+- **The camera frame fills most of the page** (`75vh` tall, full content
+  width - Redmine's own layout already gives this page the full width
+  since it has no sidebar) rather than a small fixed-size box, for a
+  large, easy-to-aim-at target. The result banner and "Scan next" button
+  are an absolutely-positioned overlay covering that same frame, not
+  separate page elements below it - and deliberately a sibling of
+  `#qr-reader`, not a child placed inside it: the library clears and
+  rebuilds that element's own contents at points in its lifecycle
+  (start/pause/resume), so anything of ours living inside it would risk
+  being wiped out along with it.
 - **A scan result is posted, not navigated to** - `show.html.erb` submits
   the decoded text to `POST /qr_scanner/scan` with `fetch`, not a real
   form navigation, so the response (JSON: `status`/`message`) can be shown

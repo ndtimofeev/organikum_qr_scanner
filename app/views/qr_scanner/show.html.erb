@@ -2,17 +2,26 @@
 
 <p><%= l(:text_qr_scanner_hint) %></p>
 
-<%# Html5QrcodeScanner (the library's own high-level widget) draws its own
-    start button, camera picker, and viewfinder inside this element - there
-    is nothing else for this plugin to build a UI around. %>
-<div id="qr-reader" style="width: 100%; max-width: 500px;"></div>
+<%# position: relative here, not on #qr-reader itself, so the result
+    overlay below can cover exactly the frame Html5QrcodeScanner draws
+    into without ever touching that element's own children - it clears
+    and rebuilds its own DOM at various points in its lifecycle (start,
+    pause, resume), so anything of ours placed inside #qr-reader itself
+    would risk being wiped out along with it. %>
+<div id="qr-scan-wrapper" style="position: relative; width: 100%; height: 75vh;">
+  <%# Html5QrcodeScanner (the library's own high-level widget) draws its
+      own start button, camera picker, and viewfinder inside this element -
+      there is nothing else for this plugin to build a UI around. %>
+  <div id="qr-reader" style="width: 100%; height: 100%;"></div>
 
-<%# Hidden until a scan result comes back. Deliberately not a Redmine
-    flash message (those only survive one redirect) - this page never
-    navigates away, so the result has to live in the page itself. %>
-<div id="qr-scan-result" class="qr-scan-result" style="display: none;">
-  <p id="qr-scan-message"></p>
-  <button type="button" id="qr-scan-continue"><%= l(:button_qr_scanner_continue) %></button>
+  <%# The result overlay: hidden until a scan comes back, then covers the
+      whole frame above. Deliberately not a Redmine flash message (those
+      only survive one redirect) - this page never navigates away, so the
+      result has to live in the page itself. %>
+  <div id="qr-scan-result" class="qr-scan-result">
+    <p id="qr-scan-message"></p>
+    <button type="button" id="qr-scan-continue"><%= l(:button_qr_scanner_continue) %></button>
+  </div>
 </div>
 
 <%# A real form (form_tag embeds the CSRF token automatically) - but
@@ -24,19 +33,48 @@
 <% end %>
 
 <style>
-  .qr-scan-result {
-    max-width: 500px;
-    margin-top: 1em;
-    padding: 1em;
-    border-radius: 4px;
-    text-align: center;
+  /* Redmine's own #content padding (application.css) reads as a wasted
+     margin around something meant to fill the page - scoped to this one
+     controller/action via the body classes Redmine's layout already adds
+     (see application_helper.rb#body_css_classes), so nothing else is
+     affected. */
+  body.controller-qr_scanner.action-show #content {
+    padding-left: 0;
+    padding-right: 0;
   }
-  .qr-scan-result.-success { background: #dff0d8; color: #3c763d; }
-  .qr-scan-result.-error { background: #f2dede; color: #a94442; }
+
+  /* Html5QrcodeScanner sets its <video> element's own size via inline
+     styles (JS-applied, not a stylesheet) - only !important reliably
+     wins against that, plain specificity doesn't. object-fit: cover
+     fills the frame completely rather than letterboxing, at the cost of
+     cropping the edges of the camera's actual field of view - an
+     acceptable trade for a large, immersive scanning frame. */
+  #qr-reader video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .qr-scan-result {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1em;
+    text-align: center;
+    color: #fff;
+  }
+  .qr-scan-result.-success { background: rgba(60, 118, 61, 0.92); }
+  .qr-scan-result.-error { background: rgba(169, 68, 66, 0.92); }
+  .qr-scan-result p { font-size: 1.3em; margin-bottom: 1em; }
   .qr-scan-result button {
-    margin-top: 0.5em;
-    padding: 0.5em 1.5em;
-    font-size: 1.1em;
+    padding: 0.6em 2em;
+    font-size: 1.2em;
   }
 </style>
 
@@ -45,7 +83,17 @@
 </script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    var scanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: 250 });
+    var scanner = new Html5QrcodeScanner('qr-reader', {
+      fps: 10,
+      // A fixed pixel qrbox would look lost (or too cramped) once the
+      // frame itself scales with the viewport - sizing it as a fraction
+      // of whatever the viewfinder actually turns out to be keeps the
+      // aiming box proportionate at any screen size.
+      qrbox: function (viewfinderWidth, viewfinderHeight) {
+        var edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+        return { width: edge, height: edge };
+      }
+    });
     var resultEl = document.getElementById('qr-scan-result');
     var messageEl = document.getElementById('qr-scan-message');
     var continueButton = document.getElementById('qr-scan-continue');
@@ -60,7 +108,7 @@
     function showResult(status, message) {
       messageEl.textContent = message;
       resultEl.className = 'qr-scan-result -' + status;
-      resultEl.style.display = 'block';
+      resultEl.style.display = 'flex';
 
       // A signal beyond just text/color - useful when the operator isn't
       // looking straight at the screen right after scanning (e.g. still
