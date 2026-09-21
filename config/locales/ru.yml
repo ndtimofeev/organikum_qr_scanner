@@ -1,6 +1,7 @@
 ru:
   label_qr_scanner: "Сканер QR-кодов"
-  text_qr_scanner_hint: "Наведите камеру на QR-код одной из задач этого Redmine. При успешном скане настроенное поле уменьшится на 1, и вы перейдёте на эту задачу."
+  text_qr_scanner_hint: "Наведите камеру на QR-код одной из задач этого Redmine. При успешном скане настроенное поле уменьшится на 1."
+  button_qr_scanner_continue: "Сканировать следующий"
 
   field_qr_scanner_custom_field: "Поле для декремента"
   text_qr_scanner_custom_field_hint: "В списке только декрементируемые целочисленные поля (из redmine-custom-decrement-field) - если этот плагин не установлен, список будет пустым."
@@ -11,3 +12,4 @@ ru:
   error_qr_scanner_field_missing: "У этой задачи нет настроенного поля"
   error_qr_scanner_no_permission: "У вас нет прав на это действие с данной задачей"
   error_qr_scanner_exhausted: "Значение уже равно нулю (или меньше), списание недоступно"
+  error_qr_scanner_request_failed: "Запрос не выполнен - проверьте соединение и попробуйте снова"

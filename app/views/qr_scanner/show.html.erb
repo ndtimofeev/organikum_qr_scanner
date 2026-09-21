@@ -7,14 +7,38 @@
     is nothing else for this plugin to build a UI around. %>
 <div id="qr-reader" style="width: 100%; max-width: 500px;"></div>
 
-<%# A real, ordinary form - not an AJAX call - so a successful scan ends
-    in a normal HTTP redirect straight to the issue (or back here with a
-    flash message), the same way any other Redmine form submission does.
-    form_tag embeds the CSRF token automatically; JS only ever fills in
-    the one hidden field and submits. %>
+<%# Hidden until a scan result comes back. Deliberately not a Redmine
+    flash message (those only survive one redirect) - this page never
+    navigates away, so the result has to live in the page itself. %>
+<div id="qr-scan-result" class="qr-scan-result" style="display: none;">
+  <p id="qr-scan-message"></p>
+  <button type="button" id="qr-scan-continue"><%= l(:button_qr_scanner_continue) %></button>
+</div>
+
+<%# A real form (form_tag embeds the CSRF token automatically) - but
+    submitted via fetch (see below) rather than a real navigation, so the
+    result can be shown without leaving this page and the camera can be
+    paused/resumed instead of torn down and rebuilt. %>
 <%= form_tag(scan_qr_scanner_path, id: 'qr-scan-form', style: 'display: none') do %>
   <%= hidden_field_tag :url, '', id: 'qr-scan-url' %>
 <% end %>
+
+<style>
+  .qr-scan-result {
+    max-width: 500px;
+    margin-top: 1em;
+    padding: 1em;
+    border-radius: 4px;
+    text-align: center;
+  }
+  .qr-scan-result.-success { background: #dff0d8; color: #3c763d; }
+  .qr-scan-result.-error { background: #f2dede; color: #a94442; }
+  .qr-scan-result button {
+    margin-top: 0.5em;
+    padding: 0.5em 1.5em;
+    font-size: 1.1em;
+  }
+</style>
 
 <script>
 <%= raw QrScannerController.vendored_javascript %>
@@ -22,15 +46,61 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     var scanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: 250 });
+    var resultEl = document.getElementById('qr-scan-result');
+    var messageEl = document.getElementById('qr-scan-message');
+    var continueButton = document.getElementById('qr-scan-continue');
+    var form = document.getElementById('qr-scan-form');
+    var urlField = document.getElementById('qr-scan-url');
+
+    // Guards against the decode loop firing again for the same code a
+    // frame or two after a scan is already being handled, before
+    // scanner.pause() below has actually taken effect.
+    var handlingScan = false;
+
+    function showResult(status, message) {
+      messageEl.textContent = message;
+      resultEl.className = 'qr-scan-result -' + status;
+      resultEl.style.display = 'block';
+
+      // A signal beyond just text/color - useful when the operator isn't
+      // looking straight at the screen right after scanning (e.g. still
+      // holding the item up to the camera). Quietly does nothing wherever
+      // unsupported (iOS Safari, desktop browsers) - a bonus, not
+      // something relied on.
+      if (status === 'success' && navigator.vibrate) {
+        navigator.vibrate(200);
+      }
+    }
 
     scanner.render(function (decodedText) {
-      // Stop the camera before navigating away - the page unload would
-      // do that anyway, but there's no reason to leave it running for
-      // even the brief moment the form submission takes.
-      scanner.clear().finally(function () {
-        document.getElementById('qr-scan-url').value = decodedText;
-        document.getElementById('qr-scan-form').submit();
-      });
+      if (handlingScan) return;
+      handlingScan = true;
+
+      // true also freezes the visible preview on the last frame, which
+      // is itself a clear "this is paused" signal, not just a mechanism
+      // to stop decoding.
+      try { scanner.pause(true); } catch (e) { /* already paused/stopped */ }
+
+      urlField.value = decodedText;
+
+      fetch(form.action, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: new FormData(form)
+      })
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          showResult(data.status, data.message);
+        })
+        .catch(function () {
+          showResult('error', <%= l(:error_qr_scanner_request_failed).to_json.html_safe %>);
+        });
+    });
+
+    continueButton.addEventListener('click', function () {
+      resultEl.style.display = 'none';
+      handlingScan = false;
+      scanner.resume();
     });
   });
 </script>

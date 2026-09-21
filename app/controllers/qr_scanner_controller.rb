@@ -18,23 +18,29 @@ class QrScannerController < ApplicationController
   # isn't, no field can have field_format 'decrementable_int' in the first
   # place (see decrement_target_field), so this action simply never finds
   # a field to act on.
+  #
+  # Answers with JSON rather than redirecting: the page that posts here
+  # (show.html.erb) stays on the scanner the whole time - showing the
+  # result and pausing/resuming the camera are both its job, not this
+  # action's. See that view for why staying put, rather than navigating
+  # to the issue, is what's wanted here.
   def scan
     issue = issue_from_scanned_url(params[:url])
-    return redirect_to(qr_scanner_path, alert: l(:error_qr_scanner_unrecognized_url)) unless issue
+    return render_scan_result(:error, l(:error_qr_scanner_unrecognized_url)) unless issue
 
     field = decrement_target_field
-    return redirect_to(issue_path(issue), alert: l(:error_qr_scanner_not_configured)) unless field
+    return render_scan_result(:error, l(:error_qr_scanner_not_configured), issue) unless field
 
     unless issue.available_custom_fields.include?(field)
-      return redirect_to(issue_path(issue), alert: l(:error_qr_scanner_field_missing))
+      return render_scan_result(:error, l(:error_qr_scanner_field_missing), issue)
     end
 
     unless issue.notes_addable?(User.current)
-      return redirect_to(issue_path(issue), alert: l(:error_qr_scanner_no_permission))
+      return render_scan_result(:error, l(:error_qr_scanner_no_permission), issue)
     end
 
     token = field.format_store['decrement_token']
-    return redirect_to(issue_path(issue), alert: l(:error_qr_scanner_not_configured)) if token.blank?
+    return render_scan_result(:error, l(:error_qr_scanner_not_configured), issue) if token.blank?
 
     # Mirrors StockCalculator#value_in_db on the other plugin: the current
     # custom_values row already holds the last derived total (kept fresh
@@ -42,12 +48,12 @@ class QrScannerController < ApplicationController
     # directly is enough - there's no need to re-derive the value from
     # journal history here too.
     current_value = issue.custom_value_for(field)&.value.to_i
-    return redirect_to(issue_path(issue), alert: l(:error_qr_scanner_exhausted)) if current_value <= 0
+    return render_scan_result(:error, l(:error_qr_scanner_exhausted), issue) if current_value <= 0
 
     issue.init_journal(User.current, "#{token}:-1")
     issue.save!
 
-    redirect_to issue_path(issue), notice: l(:notice_qr_scanner_decremented)
+    render_scan_result(:success, l(:notice_qr_scanner_decremented), issue)
   end
 
   # The html5-qrcode UMD build, vendored under assets/javascripts/ rather
@@ -111,5 +117,13 @@ class QrScannerController < ApplicationController
     return nil if id.blank?
 
     IssueCustomField.find_by(id: id, field_format: 'decrementable_int')
+  end
+
+  # Always a plain 200 with a `status` field, not a matching HTTP status
+  # per outcome - the page only ever branches on `status`, and this keeps
+  # `fetch`'s own success/failure handling (network-level, in show.erb)
+  # cleanly separate from "did the scan itself succeed".
+  def render_scan_result(status, message, issue = nil)
+    render json: { status: status, message: message, issue_id: issue&.id, issue_subject: issue&.subject }
   end
 end

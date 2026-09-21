@@ -4,8 +4,10 @@ A Redmine 6+ plugin: one page, reachable at `/qr_scanner`, that turns on
 the device's camera right in the browser and decodes QR codes using
 [html5-qrcode](https://github.com/mebjas/html5-qrcode). A successful scan
 that resolves to one of this Redmine's own issues decrements a
-decrementable custom field (chosen once in Settings) on that issue, then
-opens it.
+decrementable custom field (chosen once in Settings) on that issue. The
+scanner stays paused - showing a clear success/error message right there
+on the page - until the operator taps to continue, rather than navigating
+away to the issue on every single scan.
 
 **Status: sketch.** Deliberately minimal - see "Scope" below.
 
@@ -31,6 +33,19 @@ opens it.
   draws its own start button, camera picker, and viewfinder; this plugin
   only provides the page and the div it renders into. The server never
   sees anything but the decoded *text* of a successful scan.
+- **A scan result is posted, not navigated to** - `show.html.erb` submits
+  the decoded text to `POST /qr_scanner/scan` with `fetch`, not a real
+  form navigation, so the response (JSON: `status`/`message`) can be shown
+  right there on the scanner page instead of a redirect. The moment a code
+  decodes, `scanner.pause(true)` freezes the camera preview and stops
+  decoding - both so the same code sitting in view can't fire a second
+  scan, and as a visible "this is paused" signal in its own right. Nothing
+  resumes it but the operator tapping "Scan next", which calls
+  `scanner.resume()` - fast (no camera/permission re-acquisition, unlike
+  tearing down and recreating the scanner) and deliberate (no fixed
+  cooldown to wait out). A successful scan also triggers
+  `navigator.vibrate()` where supported, as a signal that doesn't depend
+  on the operator looking at the screen at that exact moment.
 - **A scan resolves to a specific, permission-checked local Issue before
   anything else happens.** `QrScannerController#issue_from_scanned_url`
   only ever recognizes a URL whose path matches this Redmine's own
@@ -108,13 +123,14 @@ opens it.
   `POST /qr_scanner/scan` (what a successful scan submits to).
 - `app/controllers/qr_scanner_controller.rb` - `show` renders the page;
   `scan` resolves the decoded URL to an issue, runs the field/permission/
-  exhausted checks, and either redirects to the issue (decremented or
-  not) or back to the scanner page with an error. Also reads and
-  memoizes the vendored library's source.
+  exhausted checks, and always answers with JSON (`status`/`message`),
+  decremented or not. Also reads and memoizes the vendored library's
+  source.
 - `app/views/qr_scanner/show.html.erb` - the page itself: a `<div>` for
   `Html5QrcodeScanner` to render into, a hidden form pointed at
-  `POST /qr_scanner/scan`, the inlined library, and the handful of lines
-  that fill in and submit that form on a successful scan.
+  `POST /qr_scanner/scan`, a result banner (hidden until a scan comes
+  back), the inlined library, and the JS wiring a scan to a `fetch` call,
+  `scanner.pause(true)`, and the "Scan next" button to `scanner.resume()`.
 - `app/views/settings/_organikum_qr_scanner_settings.html.erb` - the one
   Settings field: which decrementable custom field to act on.
 - `assets/javascripts/html5-qrcode.min.js` +
