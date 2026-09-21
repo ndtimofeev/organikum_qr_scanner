@@ -1,0 +1,3 @@
+en:
+  label_qr_scanner: "QR scanner"
+  text_qr_scanner_hint: "Point the camera at a QR code. If it encodes a URL, you'll be taken there automatically."

@@ -1,0 +1,29 @@
+<h2><%= l(:label_qr_scanner) %></h2>
+
+<p><%= l(:text_qr_scanner_hint) %></p>
+
+<%# Html5QrcodeScanner (the library's own high-level widget) draws its own
+    start button, camera picker, and viewfinder inside this element - there
+    is nothing else for this plugin to build a UI around. %>
+<div id="qr-reader" style="width: 100%; max-width: 500px;"></div>
+
+<script>
+<%= raw QrScannerController.vendored_javascript %>
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var scanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: 250 });
+
+    // The entire contract with whatever produced the QR code is "it's a
+    // URL" (see README) - so the only thing a successful scan does is
+    // navigate there. scanner.clear() stops the camera first; the
+    // subsequent page navigation would do that anyway, but leaving the
+    // camera running any longer than necessary while the browser is
+    // already navigating away is needless.
+    scanner.render(function (decodedText) {
+      scanner.clear().finally(function () {
+        window.location.href = decodedText;
+      });
+    });
+  });
+</script>
