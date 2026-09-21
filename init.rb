@@ -5,7 +5,7 @@ require 'redmine'
 # Redmine. Its only contract with the rest of the world is "a decoded QR
 # code is a URL to open" - it has no knowledge of issues, custom fields,
 # or the redmine-custom-decrement-field plugin, on purpose (see README).
-Redmine::Plugin.register :redmine_qr_scanner do
+Redmine::Plugin.register :organikum_qr_scanner do
   name 'QR Scanner'
   author 'Your Company'
   description 'Scans a QR code with the device camera, directly in the browser, ' \

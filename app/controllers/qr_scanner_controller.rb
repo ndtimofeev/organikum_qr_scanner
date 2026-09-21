@@ -23,7 +23,7 @@ class QrScannerController < ApplicationController
 
   def self.vendored_javascript_path
     File.join(
-      Redmine::Plugin.find(:redmine_qr_scanner).assets_directory,
+      Redmine::Plugin.find(:organikum_qr_scanner).assets_directory,
       'javascripts', 'html5-qrcode.min.js'
     )
   end

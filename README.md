@@ -57,11 +57,13 @@ scanner", nothing more:
 
 ## Installation
 
-1. Clone into Redmine's `plugins/` directory as `redmine_qr_scanner`:
+1. Clone into Redmine's `plugins/` directory as `organikum_qr_scanner`
+   (matching the plugin's own registered id, `Redmine::Plugin.register
+   :organikum_qr_scanner` in `init.rb`):
 
    ```bash
    cd /path/to/redmine/plugins
-   git clone https://github.com/ndtimofeev/organikum_qr_scanner redmine_qr_scanner
+   git clone https://github.com/ndtimofeev/organikum_qr_scanner organikum_qr_scanner
    ```
 
 2. Restart Redmine (no migrations, no `bundle install` needed - this
