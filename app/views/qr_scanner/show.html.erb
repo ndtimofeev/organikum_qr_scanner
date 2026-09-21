@@ -71,7 +71,15 @@
   .qr-scan-result.-success { background: rgba(60, 118, 61, 0.92); }
   .qr-scan-result.-error { background: rgba(169, 68, 66, 0.92); }
   .qr-scan-result p { font-size: 1.3em; margin-bottom: 1em; }
+  /* Redmine's own `input, select, button { height: 24px; ... }` rule
+     (application.css) applies to ANY <button>, submit or not - at this
+     button's padding/font-size, 24px isn't tall enough to contain the
+     text, which then overflowed below the button's own drawn edges
+     rather than being clipped. height: auto (a class+element selector
+     beats that plain-element core rule on specificity) lets the box
+     grow to fit its content instead. */
   .qr-scan-result button {
+    height: auto;
     padding: 0.6em 2em;
     font-size: 1.2em;
   }

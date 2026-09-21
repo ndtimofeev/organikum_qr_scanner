@@ -96,7 +96,7 @@ class QrScannerController < ApplicationController
 
     path = begin
       URI.parse(url).path
-    rescue URI::InvalidURIError
+    rescue URI::Error
       nil
     end
     return nil if path.blank?
