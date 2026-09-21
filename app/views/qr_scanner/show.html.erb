@@ -8,11 +8,22 @@
     and rebuilds its own DOM at various points in its lifecycle (start,
     pause, resume), so anything of ours placed inside #qr-reader itself
     would risk being wiped out along with it. %>
-<div id="qr-scan-wrapper" style="position: relative; width: 100%; height: 75vh;">
+<div id="qr-scan-wrapper" style="position: relative; width: 100%;">
   <%# Html5QrcodeScanner (the library's own high-level widget) draws its
       own start button, camera picker, and viewfinder inside this element -
-      there is nothing else for this plugin to build a UI around. %>
-  <div id="qr-reader" style="width: 100%; height: 100%;"></div>
+      there is nothing else for this plugin to build a UI around. Width is
+      the only dimension forced here, on purpose: an earlier version also
+      forced a fixed viewport-relative height (plus object-fit: cover on
+      the library's own <video>) to make the frame fill more of the page,
+      and that stopped the camera from starting at all on phones while
+      still working on desktop - forcing an unnaturally tall aspect ratio
+      onto the container most likely made the library request a camera
+      resolution/aspect ratio mobile hardware couldn't satisfy, something
+      a wide desktop webcam tolerates far more easily. Left at its natural
+      width-driven, aspect-ratio-preserving size instead; still noticeably
+      larger than the old fixed 500px box simply because #content is no
+      longer artificially narrowed (see the CSS below). %>
+  <div id="qr-reader" style="width: 100%;"></div>
 
   <%# The result overlay: hidden until a scan comes back, then covers the
       whole frame above. Deliberately not a Redmine flash message (those
@@ -41,18 +52,6 @@
   body.controller-qr_scanner.action-show #content {
     padding-left: 0;
     padding-right: 0;
-  }
-
-  /* Html5QrcodeScanner sets its <video> element's own size via inline
-     styles (JS-applied, not a stylesheet) - only !important reliably
-     wins against that, plain specificity doesn't. object-fit: cover
-     fills the frame completely rather than letterboxing, at the cost of
-     cropping the edges of the camera's actual field of view - an
-     acceptable trade for a large, immersive scanning frame. */
-  #qr-reader video {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
   }
 
   .qr-scan-result {

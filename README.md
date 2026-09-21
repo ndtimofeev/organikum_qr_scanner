@@ -33,12 +33,21 @@ away to the issue on every single scan.
   draws its own start button, camera picker, and viewfinder; this plugin
   only provides the page and the div it renders into. The server never
   sees anything but the decoded *text* of a successful scan.
-- **The camera frame fills most of the page** (`75vh` tall, full content
-  width - Redmine's own layout already gives this page the full width
-  since it has no sidebar) rather than a small fixed-size box, for a
-  large, easy-to-aim-at target. The result banner and "Scan next" button
-  are an absolutely-positioned overlay covering that same frame, not
-  separate page elements below it - and deliberately a sibling of
+- **The camera frame fills the content width** rather than a small fixed
+  500px box, for a large, easy-to-aim-at target - Redmine's own layout
+  already gives this page the full width since it has no sidebar, and
+  `#content`'s own padding is zeroed out on this one page. Only width is
+  forced, deliberately not height: an earlier version also forced a fixed
+  viewport-relative height (plus `object-fit: cover` on the library's own
+  `<video>`) to make the frame taller still, and that stopped the camera
+  from starting at all on phones while continuing to work on desktop -
+  the unnaturally tall aspect ratio this forced onto the container most
+  likely made the library request a camera resolution/aspect ratio mobile
+  hardware couldn't satisfy, something a wide desktop webcam tolerates
+  far more easily. The frame's height is left to follow the video's own
+  natural aspect ratio at 100% width instead. The result banner and "Scan
+  next" button are an absolutely-positioned overlay covering that frame,
+  not separate page elements below it - and deliberately a sibling of
   `#qr-reader`, not a child placed inside it: the library clears and
   rebuilds that element's own contents at points in its lifecycle
   (start/pause/resume), so anything of ours living inside it would risk
