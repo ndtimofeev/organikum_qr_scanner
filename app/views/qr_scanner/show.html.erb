@@ -1,4 +1,10 @@
-<h2><%= l(:label_qr_scanner_decrement) %></h2>
+<h2>
+  <%= l(:label_qr_scanner_decrement) %>
+  <%# Riding on the heading's own line rather than a paragraph/banner of
+      its own - see inspect.html.erb for the other direction and the
+      fuller reasoning. %>
+  <small class="qr-scanner-switch"><%= link_to l(:link_qr_scanner_to_inspect), inspect_qr_scanner_path %></small>
+</h2>
 
 <%# position: relative here, not on #qr-reader itself, so the result
     overlay below can cover exactly the frame Html5QrcodeScanner draws
@@ -56,6 +62,18 @@
     padding-left: 0;
     padding-right: 0;
   }
+
+  /* Deliberately subordinate to the heading it rides on - smaller and
+     muted, so the page's own name stays the visually dominant thing on
+     this line, and the link to the other scanner reads as a secondary,
+     always-available option rather than competing for attention. */
+  .qr-scanner-switch {
+    margin-left: 0.5em;
+    font-size: 0.55em;
+    font-weight: normal;
+    opacity: 0.75;
+  }
+  .qr-scanner-switch:before { content: "\2192\00a0"; } /* → (non-breaking space after) */
 
   .qr-scan-result {
     display: none;

@@ -8,10 +8,10 @@ device's camera right in the browser and decoding QR codes using
   once in Settings) the moment a scan resolves to one of this Redmine's
   own issues. No confirmation step - built for working through many
   items quickly.
-- `/qr_scanner/inspect` - a scan shows that issue's subject, status, and
-  the same field's current value, as key/value pairs, with nothing
-  changed yet. Only an explicit tap on "Decrement" performs the write;
-  "Skip" moves on without touching anything.
+- `/qr_scanner/inspect` (**Inspector**) - a scan shows that issue's
+  subject, status, and the same field's current value, as key/value
+  pairs, with nothing changed yet. Only an explicit tap on "Decrement"
+  performs the write; "Skip" moves on without touching anything.
 
 These are two different tools for two different situations, not two
 "modes" of one screen to flip between - see "Design" for why an earlier
@@ -137,29 +137,31 @@ between the two.
   anything this plugin does. If your Redmine is only reachable over HTTP,
   this page will load but the camera will never start.
 
-- **Each page has its own entry in `:application_menu`** - the same
-  cross-project sidebar core itself uses for "Issues"/"Time tracking"/
-  "Gantt"/"Calendar", since neither scanner is scoped to any one project
-  either. `:project_menu` was rejected (it only renders inside a specific
-  project, and scanning doesn't know which project it'll land in ahead of
-  time) and so was `:admin_menu` (these pages are for whoever does
-  inventory work, not whoever administers the instance - the plugin's own
-  Settings link already lives there automatically on its own). Each
-  entry's visibility reuses an existing core permission rather than a new
-  plugin-specific one, the same way the write path itself reuses
-  `add_issue_notes` instead of inventing one: the decrement page needs
-  `add_issue_notes` (`:global => true`, matching how core checks its own
-  entries here), the inspect page only needs the broader `view_issues`,
-  since inspecting is a read - the "Decrement" button inside it already
-  hides itself per-issue when the viewer can't actually use it.
-  Bookmarking/adding either URL to a phone's home screen is still worth
-  doing on top of this for daily use - no menu, however placed, beats a
-  home-screen icon for something opened many times a day.
+- **One `:application_menu` entry, not two** - the same cross-project
+  sidebar core itself uses for "Issues"/"Time tracking"/"Gantt"/
+  "Calendar", since neither scanner is scoped to any one project either
+  (`:project_menu` was rejected for only ever rendering inside a specific
+  project; `:admin_menu` for being about administering the instance, not
+  doing inventory work - the plugin's own Settings link already lives
+  there on its own). Two entries for two pages read as clutter for
+  something used this often, so the single entry, captioned "Scanner",
+  goes to Inspector - the safer of the two, since it never writes on its
+  own - gated by the broader `view_issues` (`:global => true`, matching
+  how core checks its own entries here) rather than `add_issue_notes`.
+  The decrement scanner is reached from there instead (see the next
+  point), not via a second menu entry.
+- **Each page links to the other from its own heading**, not a paragraph
+  or banner of its own - a small, muted link riding on the `<h2>` line
+  costs no extra page space, unlike an earlier version's full-width
+  mode-switch banner (see below). Since the decrement scanner has no menu
+  entry of its own, this link - plus a bookmark/home-screen shortcut a
+  user sets up themselves - is its only way to be reached at all.
+  Bookmarking either URL to a phone's home screen is worth doing
+  regardless of any of this for daily use - no menu, however placed,
+  beats a home-screen icon for something opened many times a day.
 
 ## Scope - what this deliberately does NOT do yet
 
-- The two pages don't link to each other (see "Design" on why the
-  mode-switch banner that used to do that was dropped).
 - Only one field, globally, can be configured - not one per tracker or
   per project. Scanning an issue whose tracker doesn't carry that field
   is reported as an error (`error_qr_scanner_field_missing`) on
@@ -187,17 +189,17 @@ between the two.
    `redmine-custom-decrement-field`'s "Decrementable integer" format are
    offered; if none exist yet, create one there first.
 
-4. Log in - both pages now appear in the left sidebar on any cross-project
+4. Log in - "Scanner" now appears in the left sidebar on any cross-project
    page (Projects, global Issues, Activity...), permission allowing (see
-   "Design"). Visit `/qr_scanner` (always decrements) or
-   `/qr_scanner/inspect` (look first, decrement optionally) over HTTPS.
-   Grant the camera permission prompt, then point it at a QR code
+   "Design"), and goes to Inspector; the decrement scanner is one link
+   away from there (top-right of its own heading), and vice versa. Over
+   HTTPS, grant the camera permission prompt, then point it at a QR code
    encoding one of this Redmine's issue URLs.
 
 ## Structure
 
 - `init.rb` - besides the usual `Redmine::Plugin.register`, registers
-  both pages' `:application_menu` entries.
+  the single `:application_menu` entry (to Inspector).
 - `config/routes.rb` - `GET /qr_scanner` + `POST /qr_scanner/scan`,
   `GET /qr_scanner/inspect` + `POST /qr_scanner/inspect_scan`.
 - `app/controllers/qr_scanner_controller.rb` - `show`/`inspect` render
@@ -209,16 +211,17 @@ between the two.
   value/whether decrementing is currently offered), never writes. Also
   reads and memoizes the vendored library's source.
 - `app/views/qr_scanner/show.html.erb` - the always-decrements page: a
-  `<div>` for `Html5QrcodeScanner`, a hidden form posting to
-  `POST /qr_scanner/scan`, a tap-anywhere result overlay, the inlined
-  library, and the JS wiring a scan to `fetch` + `scanner.pause(true)`.
-- `app/views/qr_scanner/inspect.html.erb` - the look-first page: the same
-  camera setup, two hidden forms (one for the read-only lookup every scan
-  does, one for the actual decrement - only ever submitted by the
-  "Decrement" button's own handler), a key/value result overlay
-  (`<dl>`-based) with "Decrement"/"Skip" buttons that switches to a
-  single outcome message + one button once a decrement has actually been
-  attempted.
+  heading with a small link to Inspector, a `<div>` for
+  `Html5QrcodeScanner`, a hidden form posting to `POST /qr_scanner/scan`,
+  a tap-anywhere result overlay, the inlined library, and the JS wiring a
+  scan to `fetch` + `scanner.pause(true)`.
+- `app/views/qr_scanner/inspect.html.erb` - the look-first page: a
+  heading with a small link to the decrement scanner, the same camera
+  setup, two hidden forms (one for the read-only lookup every scan does,
+  one for the actual decrement - only ever submitted by the "Decrement"
+  button's own handler), a key/value result overlay (`<dl>`-based) with
+  "Decrement"/"Skip" buttons that switches to a single outcome message +
+  one button once a decrement has actually been attempted.
 - `app/views/settings/_organikum_qr_scanner_settings.html.erb` - the one
   Settings field: which decrementable custom field to act on (read by
   both pages).

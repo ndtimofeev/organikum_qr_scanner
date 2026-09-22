@@ -1,6 +1,9 @@
 ru:
+  label_qr_scanner_menu: "Сканер"
   label_qr_scanner_decrement: "Сканер списания"
-  label_qr_scanner_inspect: "Сканер инспекции"
+  label_qr_scanner_inspect: "Инспектор"
+  link_qr_scanner_to_decrement: "Списание"
+  link_qr_scanner_to_inspect: "Инспектор"
   text_qr_scanner_tap_to_continue: "Нажмите в любом месте, чтобы сканировать следующий"
   button_qr_scanner_continue: "Сканировать следующий"
   button_qr_scanner_decrement: "Декрементировать"

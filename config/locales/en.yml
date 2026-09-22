@@ -1,6 +1,9 @@
 en:
+  label_qr_scanner_menu: "Scanner"
   label_qr_scanner_decrement: "Decrement scanner"
-  label_qr_scanner_inspect: "Inspect scanner"
+  label_qr_scanner_inspect: "Inspector"
+  link_qr_scanner_to_decrement: "Decrement"
+  link_qr_scanner_to_inspect: "Inspector"
   text_qr_scanner_tap_to_continue: "Tap anywhere to scan the next one"
   button_qr_scanner_continue: "Scan next"
   button_qr_scanner_decrement: "Decrement"

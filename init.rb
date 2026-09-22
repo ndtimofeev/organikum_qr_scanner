@@ -33,26 +33,19 @@ end
 # whoever administers the instance - the plugin's own Settings link
 # already lives there automatically, which is the right place for that.
 #
-# Each entry's :if reuses an existing core permission rather than
-# introducing a plugin-specific one, the same way the plugin's own write
-# path reuses add_issue_notes instead of a new permission (see
-# QrScannerController and the README) - :global => true checks it across
-# any project the user belongs to, matching core's own usage for these
-# same menu entries.
+# Only one entry, on purpose - two read as clutter for something used
+# this often. It goes to Inspector (the safer of the two: it never
+# writes on its own) rather than the decrement scanner; the decrement
+# scanner is one small link away from there instead (see
+# inspect.html.erb), and Inspector links back the same way, so neither
+# page is more than a tap from the other without a second menu entry.
+# :view_issues rather than :add_issue_notes, matching Inspector's own
+# (broader) requirement - :global => true checks it across any project
+# the user belongs to, matching core's own usage for these same menu
+# entries.
 Redmine::MenuManager.map :application_menu do |menu|
-  menu.push :organikum_qr_scanner_decrement,
-            { controller: 'qr_scanner', action: 'show' },
-            caption: :label_qr_scanner_decrement,
-            if: Proc.new { User.current.allowed_to?(:add_issue_notes, nil, global: true) }
-
-  # :view_issues, not :add_issue_notes - inspecting a field's value is a
-  # read, so this is offered more broadly than the decrement-only
-  # scanner above. The "Decrement" button inside inspect.html.erb hides
-  # itself per-issue when the viewer can't actually use it
-  # (QrScannerController#inspect_scan's can_decrement) - that's the
-  # right place for that specific check, not this menu-wide one.
-  menu.push :organikum_qr_scanner_inspect,
+  menu.push :organikum_qr_scanner,
             { controller: 'qr_scanner', action: 'inspect' },
-            caption: :label_qr_scanner_inspect,
+            caption: :label_qr_scanner_menu,
             if: Proc.new { User.current.allowed_to?(:view_issues, nil, global: true) }
 end
