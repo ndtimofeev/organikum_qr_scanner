@@ -1,20 +1,15 @@
 <h2><%= l(:label_qr_scanner) %></h2>
 
-<%# A loud, hard-to-miss banner naming the current mode, with a link to
-    the other one - this page and inspect.html.erb are two completely
-    separate routes/controller actions (see
-    QrScannerController#inspect_scan's own comment on why), but this is
-    what makes switching between them feel like one tool with a mode
-    switch rather than two unrelated pages to remember. Deliberately a
-    real link/page navigation, not a JS-toggled state on one page - a
-    full navigation can't leave the page thinking it's in one mode while
-    the server-side wiring is actually the other. %>
-<div class="qr-scanner-mode-bar -decrement">
-  <strong><%= l(:label_qr_scanner_mode_decrement) %></strong>
-  <%= link_to l(:link_qr_scanner_switch_to_inspect), inspect_qr_scanner_path %>
+<%# See show.html.erb's own comment on this banner - same mechanism,
+    opposite direction. Read-only here isn't a claim this banner makes on
+    its own: it's true because QrScannerController#inspect_scan (what
+    this page posts to) contains no code path that writes anything. %>
+<div class="qr-scanner-mode-bar -inspect">
+  <strong><%= l(:label_qr_scanner_mode_inspect) %></strong>
+  <%= link_to l(:link_qr_scanner_switch_to_decrement), qr_scanner_path %>
 </div>
 
-<p><%= l(:text_qr_scanner_hint) %></p>
+<p><%= l(:text_qr_scanner_inspect_hint) %></p>
 
 <%# position: relative here, not on #qr-reader itself, so the result
     overlay below can cover exactly the frame Html5QrcodeScanner draws
@@ -24,26 +19,22 @@
     would risk being wiped out along with it. %>
 <div id="qr-scan-wrapper" style="position: relative; width: 100%;">
   <%# Html5QrcodeScanner (the library's own high-level widget) draws its
-      own start button, camera picker, and viewfinder inside this element -
-      there is nothing else for this plugin to build a UI around. Width is
-      the only dimension forced here, on purpose: an earlier version also
-      forced a fixed viewport-relative height (plus object-fit: cover on
-      the library's own <video>) to make the frame fill more of the page,
-      and that stopped the camera from starting at all on phones while
-      still working on desktop - forcing an unnaturally tall aspect ratio
-      onto the container most likely made the library request a camera
-      resolution/aspect ratio mobile hardware couldn't satisfy, something
-      a wide desktop webcam tolerates far more easily. Left at its natural
-      width-driven, aspect-ratio-preserving size instead; still noticeably
-      larger than the old fixed 500px box simply because #content is no
-      longer artificially narrowed (see the CSS below). %>
+      own start button, camera picker, and viewfinder inside this element.
+      Width is the only dimension forced here, on purpose - see
+      show.html.erb's own comment: forcing a fixed viewport-relative
+      height once stopped the camera from starting at all on phones. %>
   <div id="qr-reader" style="width: 100%;"></div>
 
   <%# The result overlay: hidden until a scan comes back, then covers the
-      whole frame above. Deliberately not a Redmine flash message (those
-      only survive one redirect) - this page never navigates away, so the
-      result has to live in the page itself. %>
+      whole frame above. On success, shows subject/status/field instead
+      of a single message; on error (not a recognized issue), shows just
+      the message, styled the same way the decrement page's errors are. %>
   <div id="qr-scan-result" class="qr-scan-result">
+    <div id="qr-scan-details">
+      <p id="qr-scan-subject"></p>
+      <p id="qr-scan-status"></p>
+      <p id="qr-scan-field"></p>
+    </div>
     <p id="qr-scan-message"></p>
     <button type="button" id="qr-scan-continue"><%= l(:button_qr_scanner_continue) %></button>
   </div>
@@ -53,7 +44,7 @@
     submitted via fetch (see below) rather than a real navigation, so the
     result can be shown without leaving this page and the camera can be
     paused/resumed instead of torn down and rebuilt. %>
-<%= form_tag(scan_qr_scanner_path, id: 'qr-scan-form', style: 'display: none') do %>
+<%= form_tag(inspect_scan_qr_scanner_path, id: 'qr-scan-form', style: 'display: none') do %>
   <%= hidden_field_tag :url, '', id: 'qr-scan-url' %>
 <% end %>
 
@@ -78,7 +69,7 @@
      controller/action via the body classes Redmine's layout already adds
      (see application_helper.rb#body_css_classes), so nothing else is
      affected. */
-  body.controller-qr_scanner.action-show #content {
+  body.controller-qr_scanner.action-inspect #content {
     padding-left: 0;
     padding-right: 0;
   }
@@ -97,18 +88,20 @@
     text-align: center;
     color: #fff;
   }
-  .qr-scan-result.-success { background: rgba(60, 118, 61, 0.92); }
+  /* Neutral blue for a found issue - this page never signals
+     success/failure of an action, since it never takes one; blue reads
+     as "here's what's on it", not "this went well". Errors (not a
+     recognized issue) still use the same red as the decrement page's,
+     since "that's not a ticket" really is an error here too. */
+  .qr-scan-result.-success { background: rgba(49, 112, 143, 0.92); }
   .qr-scan-result.-error { background: rgba(169, 68, 66, 0.92); }
-  .qr-scan-result p { font-size: 1.3em; margin-bottom: 1em; }
-  /* Redmine's own `input, select, button { height: 24px; ... }` rule
-     (application.css) applies to ANY <button>, submit or not - at this
-     button's padding/font-size, 24px isn't tall enough to contain the
-     text, which then overflowed below the button's own drawn edges
-     rather than being clipped. height: auto (a class+element selector
-     beats that plain-element core rule on specificity) lets the box
-     grow to fit its content instead. */
+  .qr-scan-result p { font-size: 1.3em; margin-bottom: 0.5em; }
+  #qr-scan-subject { font-size: 1.6em; font-weight: bold; margin-bottom: 0.3em; }
+  /* Same core-CSS-vs-<button> specificity issue as the decrement page -
+     see that file's comment for the full explanation. */
   .qr-scan-result button {
     height: auto;
+    margin-top: 0.5em;
     padding: 0.6em 2em;
     font-size: 1.2em;
   }
@@ -131,6 +124,10 @@
       }
     });
     var resultEl = document.getElementById('qr-scan-result');
+    var detailsEl = document.getElementById('qr-scan-details');
+    var subjectEl = document.getElementById('qr-scan-subject');
+    var statusEl = document.getElementById('qr-scan-status');
+    var fieldEl = document.getElementById('qr-scan-field');
     var messageEl = document.getElementById('qr-scan-message');
     var continueButton = document.getElementById('qr-scan-continue');
     var form = document.getElementById('qr-scan-form');
@@ -141,19 +138,26 @@
     // scanner.pause() below has actually taken effect.
     var handlingScan = false;
 
-    function showResult(status, message) {
-      messageEl.textContent = message;
-      resultEl.className = 'qr-scan-result -' + status;
-      resultEl.style.display = 'flex';
+    function showResult(data) {
+      var isError = data.status !== 'success';
+      detailsEl.style.display = isError ? 'none' : '';
+      messageEl.style.display = isError ? '' : 'none';
 
-      // A signal beyond just text/color - useful when the operator isn't
-      // looking straight at the screen right after scanning (e.g. still
-      // holding the item up to the camera). Quietly does nothing wherever
-      // unsupported (iOS Safari, desktop browsers) - a bonus, not
-      // something relied on.
-      if (status === 'success' && navigator.vibrate) {
-        navigator.vibrate(200);
+      if (isError) {
+        messageEl.textContent = data.message;
+      } else {
+        subjectEl.textContent = '#' + data.issue_id + ' ' + data.issue_subject;
+        statusEl.textContent = <%= l(:label_qr_scanner_status_prefix).to_json.html_safe %> + ' ' + data.issue_status;
+        if (data.field_name) {
+          fieldEl.textContent = data.field_name + ': ' + data.field_value;
+          fieldEl.style.display = '';
+        } else {
+          fieldEl.style.display = 'none';
+        }
       }
+
+      resultEl.className = 'qr-scan-result -' + data.status;
+      resultEl.style.display = 'flex';
     }
 
     scanner.render(function (decodedText) {
@@ -174,10 +178,10 @@
       })
         .then(function (response) { return response.json(); })
         .then(function (data) {
-          showResult(data.status, data.message);
+          showResult(data);
         })
         .catch(function () {
-          showResult('error', <%= l(:error_qr_scanner_request_failed).to_json.html_safe %>);
+          showResult({ status: 'error', message: <%= l(:error_qr_scanner_request_failed).to_json.html_safe %> });
         });
     });
 

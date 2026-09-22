@@ -56,6 +56,40 @@ class QrScannerController < ApplicationController
     render_scan_result(:success, l(:notice_qr_scanner_decremented), issue)
   end
 
+  def inspect
+  end
+
+  # A read-only counterpart to `scan`, on its own route/page, on purpose:
+  # this method contains no path that calls init_journal/save! at all -
+  # not "the same action with a flag that skips the write", a genuinely
+  # separate one that CAN'T write, so a bug in some "am I in inspect
+  # mode" check can never be the thing standing between a scan and an
+  # accidental decrement. The two pages link to each other (see
+  # show.html.erb / inspect.html.erb) so switching feels like one tool
+  # with a mode switch, but the two are wired to entirely different
+  # controller actions underneath.
+  def inspect_scan
+    issue = issue_from_scanned_url(params[:url])
+    return render_inspect_result(:error, message: l(:error_qr_scanner_unrecognized_url)) unless issue
+
+    field = decrement_target_field
+    field_name = nil
+    field_value = nil
+    if field && issue.available_custom_fields.include?(field)
+      field_name = field.name
+      field_value = issue.custom_value_for(field)&.value
+    end
+
+    render_inspect_result(
+      :success,
+      issue_id: issue.id,
+      issue_subject: issue.subject,
+      issue_status: issue.status.name,
+      field_name: field_name,
+      field_value: field_value
+    )
+  end
+
   # The html5-qrcode UMD build, vendored under assets/javascripts/ rather
   # than pulled from a CDN at runtime (keeps this working on a network with
   # no outbound internet access, e.g. an internal warehouse LAN), and
@@ -125,5 +159,23 @@ class QrScannerController < ApplicationController
   # cleanly separate from "did the scan itself succeed".
   def render_scan_result(status, message, issue = nil)
     render json: { status: status, message: message, issue_id: issue&.id, issue_subject: issue&.subject }
+  end
+
+  # field_name/field_value are nil whenever the configured field either
+  # isn't set up or isn't attached to this particular issue's tracker -
+  # the view simply doesn't show that line in that case, the same way
+  # `scan` treats "field missing" as unremarkable for a decrement that
+  # already failed for some other reason.
+  def render_inspect_result(status, message: nil, issue_id: nil, issue_subject: nil, issue_status: nil,
+                             field_name: nil, field_value: nil)
+    render json: {
+      status: status,
+      message: message,
+      issue_id: issue_id,
+      issue_subject: issue_subject,
+      issue_status: issue_status,
+      field_name: field_name,
+      field_value: field_value
+    }
   end
 end
