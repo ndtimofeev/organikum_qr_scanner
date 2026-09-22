@@ -137,12 +137,29 @@ between the two.
   anything this plugin does. If your Redmine is only reachable over HTTP,
   this page will load but the camera will never start.
 
+- **Each page has its own entry in `:application_menu`** - the same
+  cross-project sidebar core itself uses for "Issues"/"Time tracking"/
+  "Gantt"/"Calendar", since neither scanner is scoped to any one project
+  either. `:project_menu` was rejected (it only renders inside a specific
+  project, and scanning doesn't know which project it'll land in ahead of
+  time) and so was `:admin_menu` (these pages are for whoever does
+  inventory work, not whoever administers the instance - the plugin's own
+  Settings link already lives there automatically on its own). Each
+  entry's visibility reuses an existing core permission rather than a new
+  plugin-specific one, the same way the write path itself reuses
+  `add_issue_notes` instead of inventing one: the decrement page needs
+  `add_issue_notes` (`:global => true`, matching how core checks its own
+  entries here), the inspect page only needs the broader `view_issues`,
+  since inspecting is a read - the "Decrement" button inside it already
+  hides itself per-issue when the viewer can't actually use it.
+  Bookmarking/adding either URL to a phone's home screen is still worth
+  doing on top of this for daily use - no menu, however placed, beats a
+  home-screen icon for something opened many times a day.
+
 ## Scope - what this deliberately does NOT do yet
 
-- No menu entry / link to either page anywhere in Redmine's UI yet -
-  reach them by typing the URL directly for now. The two pages don't
-  link to each other either (see "Design" on why the mode-switch banner
-  that used to do that was dropped).
+- The two pages don't link to each other (see "Design" on why the
+  mode-switch banner that used to do that was dropped).
 - Only one field, globally, can be configured - not one per tracker or
   per project. Scanning an issue whose tracker doesn't carry that field
   is reported as an error (`error_qr_scanner_field_missing`) on
@@ -170,13 +187,17 @@ between the two.
    `redmine-custom-decrement-field`'s "Decrementable integer" format are
    offered; if none exist yet, create one there first.
 
-4. Log in and visit `/qr_scanner` (always decrements) or
+4. Log in - both pages now appear in the left sidebar on any cross-project
+   page (Projects, global Issues, Activity...), permission allowing (see
+   "Design"). Visit `/qr_scanner` (always decrements) or
    `/qr_scanner/inspect` (look first, decrement optionally) over HTTPS.
    Grant the camera permission prompt, then point it at a QR code
    encoding one of this Redmine's issue URLs.
 
 ## Structure
 
+- `init.rb` - besides the usual `Redmine::Plugin.register`, registers
+  both pages' `:application_menu` entries.
 - `config/routes.rb` - `GET /qr_scanner` + `POST /qr_scanner/scan`,
   `GET /qr_scanner/inspect` + `POST /qr_scanner/inspect_scan`.
 - `app/controllers/qr_scanner_controller.rb` - `show`/`inspect` render
