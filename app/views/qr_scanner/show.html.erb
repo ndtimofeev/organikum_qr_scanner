@@ -1,19 +1,5 @@
 <h2><%= l(:label_qr_scanner) %></h2>
 
-<%# A loud, hard-to-miss banner naming the current mode, with a link to
-    the other one - this page and inspect.html.erb are two completely
-    separate routes/controller actions (see
-    QrScannerController#inspect_scan's own comment on why), but this is
-    what makes switching between them feel like one tool with a mode
-    switch rather than two unrelated pages to remember. Deliberately a
-    real link/page navigation, not a JS-toggled state on one page - a
-    full navigation can't leave the page thinking it's in one mode while
-    the server-side wiring is actually the other. %>
-<div class="qr-scanner-mode-bar -decrement">
-  <strong><%= l(:label_qr_scanner_mode_decrement) %></strong>
-  <%= link_to l(:link_qr_scanner_switch_to_inspect), inspect_qr_scanner_path %>
-</div>
-
 <p><%= l(:text_qr_scanner_hint) %></p>
 
 <%# position: relative here, not on #qr-reader itself, so the result
@@ -40,12 +26,17 @@
   <div id="qr-reader" style="width: 100%;"></div>
 
   <%# The result overlay: hidden until a scan comes back, then covers the
-      whole frame above. Deliberately not a Redmine flash message (those
-      only survive one redirect) - this page never navigates away, so the
+      whole frame above. There is nothing to decide here - this scanner
+      always just decrements and reports what happened - so the entire
+      overlay is the "continue" control: tapping anywhere on it resumes
+      scanning. No separate button competing for space or attention;
+      the "tap anywhere" hint text is there purely so that's obvious on
+      first use. Deliberately not a Redmine flash message (those only
+      survive one redirect) - this page never navigates away, so the
       result has to live in the page itself. %>
   <div id="qr-scan-result" class="qr-scan-result">
     <p id="qr-scan-message"></p>
-    <button type="button" id="qr-scan-continue"><%= l(:button_qr_scanner_continue) %></button>
+    <p class="qr-scan-hint"><%= l(:text_qr_scanner_tap_to_continue) %></p>
   </div>
 </div>
 
@@ -58,21 +49,6 @@
 <% end %>
 
 <style>
-  .qr-scanner-mode-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5em 1em;
-    padding: 0.6em 1em;
-    margin-bottom: 1em;
-    border-radius: 4px;
-    color: #fff;
-  }
-  .qr-scanner-mode-bar.-decrement { background: #a94442; }
-  .qr-scanner-mode-bar.-inspect { background: #31708f; }
-  .qr-scanner-mode-bar a { color: #fff; text-decoration: underline; }
-
   /* Redmine's own #content padding (application.css) reads as a wasted
      margin around something meant to fill the page - scoped to this one
      controller/action via the body classes Redmine's layout already adds
@@ -96,22 +72,12 @@
     padding: 1em;
     text-align: center;
     color: #fff;
+    cursor: pointer;
   }
   .qr-scan-result.-success { background: rgba(60, 118, 61, 0.92); }
   .qr-scan-result.-error { background: rgba(169, 68, 66, 0.92); }
-  .qr-scan-result p { font-size: 1.3em; margin-bottom: 1em; }
-  /* Redmine's own `input, select, button { height: 24px; ... }` rule
-     (application.css) applies to ANY <button>, submit or not - at this
-     button's padding/font-size, 24px isn't tall enough to contain the
-     text, which then overflowed below the button's own drawn edges
-     rather than being clipped. height: auto (a class+element selector
-     beats that plain-element core rule on specificity) lets the box
-     grow to fit its content instead. */
-  .qr-scan-result button {
-    height: auto;
-    padding: 0.6em 2em;
-    font-size: 1.2em;
-  }
+  .qr-scan-result p { font-size: 1.3em; margin-bottom: 0.5em; }
+  .qr-scan-result .qr-scan-hint { font-size: 0.9em; opacity: 0.85; }
 </style>
 
 <script>
@@ -132,7 +98,6 @@
     });
     var resultEl = document.getElementById('qr-scan-result');
     var messageEl = document.getElementById('qr-scan-message');
-    var continueButton = document.getElementById('qr-scan-continue');
     var form = document.getElementById('qr-scan-form');
     var urlField = document.getElementById('qr-scan-url');
 
@@ -181,7 +146,7 @@
         });
     });
 
-    continueButton.addEventListener('click', function () {
+    resultEl.addEventListener('click', function () {
       resultEl.style.display = 'none';
       handlingScan = false;
       scanner.resume();

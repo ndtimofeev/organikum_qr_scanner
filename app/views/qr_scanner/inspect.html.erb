@@ -1,14 +1,5 @@
 <h2><%= l(:label_qr_scanner) %></h2>
 
-<%# See show.html.erb's own comment on this banner - same mechanism,
-    opposite direction. Read-only here isn't a claim this banner makes on
-    its own: it's true because QrScannerController#inspect_scan (what
-    this page posts to) contains no code path that writes anything. %>
-<div class="qr-scanner-mode-bar -inspect">
-  <strong><%= l(:label_qr_scanner_mode_inspect) %></strong>
-  <%= link_to l(:link_qr_scanner_switch_to_decrement), qr_scanner_path %>
-</div>
-
 <p><%= l(:text_qr_scanner_inspect_hint) %></p>
 
 <%# position: relative here, not on #qr-reader itself, so the result
@@ -26,44 +17,45 @@
   <div id="qr-reader" style="width: 100%;"></div>
 
   <%# The result overlay: hidden until a scan comes back, then covers the
-      whole frame above. On success, shows subject/status/field instead
-      of a single message; on error (not a recognized issue), shows just
-      the message, styled the same way the decrement page's errors are. %>
+      whole frame above. Unlike show.html.erb's scanner, tapping the
+      overlay itself does nothing here - there's a real choice to make
+      (decrement or not), so both options are their own explicit,
+      clearly-labeled buttons rather than an ambiguous "tap anywhere"
+      that could be triggered without meaning to, or missed as an option
+      at all. %>
   <div id="qr-scan-result" class="qr-scan-result">
-    <div id="qr-scan-details">
-      <p id="qr-scan-subject"></p>
-      <p id="qr-scan-status"></p>
-      <p id="qr-scan-field"></p>
-    </div>
+    <dl id="qr-scan-details" class="qr-scan-kv">
+      <dt><%= l(:label_qr_scanner_issue_prefix) %></dt>
+      <dd id="qr-scan-subject"></dd>
+      <dt><%= l(:label_qr_scanner_status_prefix) %></dt>
+      <dd id="qr-scan-status"></dd>
+      <dt id="qr-scan-field-name"></dt>
+      <dd id="qr-scan-field-value"></dd>
+    </dl>
     <p id="qr-scan-message"></p>
-    <button type="button" id="qr-scan-continue"><%= l(:button_qr_scanner_continue) %></button>
+    <div class="qr-scan-buttons">
+      <button type="button" id="qr-scan-decrement"><%= l(:button_qr_scanner_decrement) %></button>
+      <button type="button" id="qr-scan-skip"><%= l(:button_qr_scanner_skip) %></button>
+    </div>
   </div>
 </div>
 
-<%# A real form (form_tag embeds the CSRF token automatically) - but
-    submitted via fetch (see below) rather than a real navigation, so the
-    result can be shown without leaving this page and the camera can be
-    paused/resumed instead of torn down and rebuilt. %>
+<%# Two forms sharing the same hidden url field's value at post time -
+    one for the read-only lookup a scan always does, one for the actual
+    decrement, only ever submitted from the "Decrement" button's own
+    click handler. See QrScannerController#inspect_scan's comment: that
+    action never writes anything - the second form, posting to `scan`
+    (the exact endpoint show.html.erb's scanner uses), is the only path
+    to a write on this page, and it only ever fires from one explicit,
+    labeled button. %>
 <%= form_tag(inspect_scan_qr_scanner_path, id: 'qr-scan-form', style: 'display: none') do %>
   <%= hidden_field_tag :url, '', id: 'qr-scan-url' %>
 <% end %>
+<%= form_tag(scan_qr_scanner_path, id: 'qr-decrement-form', style: 'display: none') do %>
+  <%= hidden_field_tag :url, '', id: 'qr-decrement-url' %>
+<% end %>
 
 <style>
-  .qr-scanner-mode-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5em 1em;
-    padding: 0.6em 1em;
-    margin-bottom: 1em;
-    border-radius: 4px;
-    color: #fff;
-  }
-  .qr-scanner-mode-bar.-decrement { background: #a94442; }
-  .qr-scanner-mode-bar.-inspect { background: #31708f; }
-  .qr-scanner-mode-bar a { color: #fff; text-decoration: underline; }
-
   /* Redmine's own #content padding (application.css) reads as a wasted
      margin around something meant to fill the page - scoped to this one
      controller/action via the body classes Redmine's layout already adds
@@ -88,23 +80,44 @@
     text-align: center;
     color: #fff;
   }
-  /* Neutral blue for a found issue - this page never signals
-     success/failure of an action, since it never takes one; blue reads
-     as "here's what's on it", not "this went well". Errors (not a
-     recognized issue) still use the same red as the decrement page's,
-     since "that's not a ticket" really is an error here too. */
-  .qr-scan-result.-success { background: rgba(49, 112, 143, 0.92); }
+  /* Neutral blue while there's a decision still to make - this state
+     isn't "success" or "failure" of anything yet, just information.
+     Errors (not a recognized issue) and the eventual decrement outcome
+     both reuse the decrement page's own green/red. */
+  .qr-scan-result.-info { background: rgba(49, 112, 143, 0.92); }
+  .qr-scan-result.-success { background: rgba(60, 118, 61, 0.92); }
   .qr-scan-result.-error { background: rgba(169, 68, 66, 0.92); }
-  .qr-scan-result p { font-size: 1.3em; margin-bottom: 0.5em; }
-  #qr-scan-subject { font-size: 1.6em; font-weight: bold; margin-bottom: 0.3em; }
-  /* Same core-CSS-vs-<button> specificity issue as the decrement page -
-     see that file's comment for the full explanation. */
-  .qr-scan-result button {
-    height: auto;
-    margin-top: 0.5em;
-    padding: 0.6em 2em;
+
+  .qr-scan-kv {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0.3em 0.8em;
+    justify-content: center;
+    margin: 0 0 1em 0;
     font-size: 1.2em;
   }
+  .qr-scan-kv dt { font-weight: normal; opacity: 0.85; text-align: right; }
+  .qr-scan-kv dd { margin: 0; font-weight: bold; text-align: left; }
+
+  #qr-scan-message { font-size: 1.3em; margin-bottom: 0.5em; }
+
+  .qr-scan-buttons { display: flex; gap: 1em; justify-content: center; flex-wrap: wrap; }
+  /* Same core-CSS-vs-<button> specificity issue as the decrement page -
+     see that file's own history for the full explanation: Redmine's
+     `input, select, button { height: 24px; ... }` isn't tall enough for
+     this padding/font-size, so text overflows below the button unless
+     height is reset. */
+  .qr-scan-buttons button {
+    height: auto;
+    padding: 0.6em 1.6em;
+    font-size: 1.1em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #qr-scan-decrement { background: #a94442; color: #fff; }
+  #qr-scan-skip { background: rgba(255, 255, 255, 0.15); color: #fff; }
+  .qr-scan-buttons button:disabled { opacity: 0.6; cursor: default; }
 </style>
 
 <script>
@@ -123,41 +136,71 @@
         return { width: edge, height: edge };
       }
     });
+
     var resultEl = document.getElementById('qr-scan-result');
     var detailsEl = document.getElementById('qr-scan-details');
     var subjectEl = document.getElementById('qr-scan-subject');
     var statusEl = document.getElementById('qr-scan-status');
-    var fieldEl = document.getElementById('qr-scan-field');
+    var fieldNameEl = document.getElementById('qr-scan-field-name');
+    var fieldValueEl = document.getElementById('qr-scan-field-value');
     var messageEl = document.getElementById('qr-scan-message');
-    var continueButton = document.getElementById('qr-scan-continue');
-    var form = document.getElementById('qr-scan-form');
-    var urlField = document.getElementById('qr-scan-url');
+    var decrementButton = document.getElementById('qr-scan-decrement');
+    var skipButton = document.getElementById('qr-scan-skip');
+    var lookupForm = document.getElementById('qr-scan-form');
+    var lookupUrlField = document.getElementById('qr-scan-url');
+    var decrementForm = document.getElementById('qr-decrement-form');
+    var decrementUrlField = document.getElementById('qr-decrement-url');
+
+    var requestFailedMessage = <%= l(:error_qr_scanner_request_failed).to_json.html_safe %>;
+    var continueLabel = <%= l(:button_qr_scanner_continue).to_json.html_safe %>;
 
     // Guards against the decode loop firing again for the same code a
     // frame or two after a scan is already being handled, before
     // scanner.pause() below has actually taken effect.
     var handlingScan = false;
 
-    function showResult(data) {
-      var isError = data.status !== 'success';
-      detailsEl.style.display = isError ? 'none' : '';
-      messageEl.style.display = isError ? '' : 'none';
+    function dismissAndResume() {
+      resultEl.style.display = 'none';
+      handlingScan = false;
+      scanner.resume();
+    }
 
-      if (isError) {
-        messageEl.textContent = data.message;
+    function showInfo(data) {
+      detailsEl.style.display = '';
+      messageEl.style.display = 'none';
+      subjectEl.textContent = '#' + data.issue_id + ' ' + data.issue_subject;
+      statusEl.textContent = data.issue_status;
+
+      if (data.field_name) {
+        fieldNameEl.textContent = data.field_name + ':';
+        fieldValueEl.textContent = data.field_value;
+        fieldNameEl.style.display = '';
+        fieldValueEl.style.display = '';
       } else {
-        subjectEl.textContent = '#' + data.issue_id + ' ' + data.issue_subject;
-        statusEl.textContent = <%= l(:label_qr_scanner_status_prefix).to_json.html_safe %> + ' ' + data.issue_status;
-        if (data.field_name) {
-          fieldEl.textContent = data.field_name + ': ' + data.field_value;
-          fieldEl.style.display = '';
-        } else {
-          fieldEl.style.display = 'none';
-        }
+        fieldNameEl.style.display = 'none';
+        fieldValueEl.style.display = 'none';
       }
 
-      resultEl.className = 'qr-scan-result -' + data.status;
+      decrementButton.style.display = data.can_decrement ? '' : 'none';
+      skipButton.textContent = <%= l(:button_qr_scanner_skip).to_json.html_safe %>;
+      resultEl.className = 'qr-scan-result -info';
       resultEl.style.display = 'flex';
+    }
+
+    function showOutcome(status, message) {
+      detailsEl.style.display = 'none';
+      messageEl.style.display = '';
+      messageEl.textContent = message;
+      decrementButton.style.display = 'none';
+      decrementButton.disabled = false;
+      skipButton.disabled = false;
+      skipButton.textContent = continueLabel;
+      resultEl.className = 'qr-scan-result -' + status;
+      resultEl.style.display = 'flex';
+
+      if (status === 'success' && navigator.vibrate) {
+        navigator.vibrate(200);
+      }
     }
 
     scanner.render(function (decodedText) {
@@ -169,26 +212,46 @@
       // to stop decoding.
       try { scanner.pause(true); } catch (e) { /* already paused/stopped */ }
 
-      urlField.value = decodedText;
+      lookupUrlField.value = decodedText;
+      decrementUrlField.value = decodedText;
 
-      fetch(form.action, {
+      fetch(lookupForm.action, {
         method: 'POST',
         headers: { Accept: 'application/json' },
-        body: new FormData(form)
+        body: new FormData(lookupForm)
       })
         .then(function (response) { return response.json(); })
         .then(function (data) {
-          showResult(data);
+          if (data.status === 'success') {
+            showInfo(data);
+          } else {
+            showOutcome('error', data.message);
+          }
         })
         .catch(function () {
-          showResult({ status: 'error', message: <%= l(:error_qr_scanner_request_failed).to_json.html_safe %> });
+          showOutcome('error', requestFailedMessage);
         });
     });
 
-    continueButton.addEventListener('click', function () {
-      resultEl.style.display = 'none';
-      handlingScan = false;
-      scanner.resume();
+    skipButton.addEventListener('click', dismissAndResume);
+
+    decrementButton.addEventListener('click', function () {
+      decrementButton.disabled = true;
+      skipButton.disabled = true;
+
+      fetch(decrementForm.action, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: new FormData(decrementForm)
+      })
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          var message = data.field_name ? (data.field_name + ': ' + data.field_value) : data.message;
+          showOutcome(data.status, message);
+        })
+        .catch(function () {
+          showOutcome('error', requestFailedMessage);
+        });
     });
   });
 </script>

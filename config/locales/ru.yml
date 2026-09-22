@@ -1,13 +1,12 @@
 ru:
   label_qr_scanner: "Сканер QR-кодов"
   text_qr_scanner_hint: "Наведите камеру на QR-код одной из задач этого Redmine. При успешном скане настроенное поле уменьшится на 1."
-  text_qr_scanner_inspect_hint: "Наведите камеру на QR-код одной из задач этого Redmine. Ничего не изменится - это только покажет, что там записано."
+  text_qr_scanner_inspect_hint: "Наведите камеру на QR-код одной из задач этого Redmine. Ничего не изменится, пока вы сами не решите списать."
+  text_qr_scanner_tap_to_continue: "Нажмите в любом месте, чтобы сканировать следующий"
   button_qr_scanner_continue: "Сканировать следующий"
-
-  label_qr_scanner_mode_decrement: "РЕЖИМ СПИСАНИЯ - сканирование меняет данные"
-  label_qr_scanner_mode_inspect: "РЕЖИМ ИНСПЕКЦИИ - только просмотр, ничего не меняется"
-  link_qr_scanner_switch_to_inspect: "Переключиться на инспекцию (только просмотр)"
-  link_qr_scanner_switch_to_decrement: "Переключиться на списание"
+  button_qr_scanner_decrement: "Декрементировать"
+  button_qr_scanner_skip: "Пропустить"
+  label_qr_scanner_issue_prefix: "Задача:"
   label_qr_scanner_status_prefix: "Статус:"
 
   field_qr_scanner_custom_field: "Поле для декремента"

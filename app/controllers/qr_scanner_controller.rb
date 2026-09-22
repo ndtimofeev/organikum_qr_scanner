@@ -53,7 +53,8 @@ class QrScannerController < ApplicationController
     issue.init_journal(User.current, "#{token}:-1")
     issue.save!
 
-    render_scan_result(:success, l(:notice_qr_scanner_decremented), issue)
+    render_scan_result(:success, l(:notice_qr_scanner_decremented), issue, field_name: field.name,
+                        field_value: issue.custom_value_for(field)&.value)
   end
 
   def inspect
@@ -62,12 +63,12 @@ class QrScannerController < ApplicationController
   # A read-only counterpart to `scan`, on its own route/page, on purpose:
   # this method contains no path that calls init_journal/save! at all -
   # not "the same action with a flag that skips the write", a genuinely
-  # separate one that CAN'T write, so a bug in some "am I in inspect
-  # mode" check can never be the thing standing between a scan and an
-  # accidental decrement. The two pages link to each other (see
-  # show.html.erb / inspect.html.erb) so switching feels like one tool
-  # with a mode switch, but the two are wired to entirely different
-  # controller actions underneath.
+  # separate one that CAN'T write. The page this feeds (inspect.html.erb)
+  # does offer a "Decrement" button, but that button posts to `scan`
+  # itself (the exact same endpoint the other scanner uses) with the same
+  # decoded URL - this action never performs, or leads to, a write on its
+  # own. field_exhausted/notes_addable are reported purely so the page can
+  # decide whether to offer that button at all, not to gate anything here.
   def inspect_scan
     issue = issue_from_scanned_url(params[:url])
     return render_inspect_result(:error, message: l(:error_qr_scanner_unrecognized_url)) unless issue
@@ -75,9 +76,11 @@ class QrScannerController < ApplicationController
     field = decrement_target_field
     field_name = nil
     field_value = nil
+    field_exhausted = nil
     if field && issue.available_custom_fields.include?(field)
       field_name = field.name
       field_value = issue.custom_value_for(field)&.value
+      field_exhausted = field_value.to_i <= 0
     end
 
     render_inspect_result(
@@ -86,7 +89,9 @@ class QrScannerController < ApplicationController
       issue_subject: issue.subject,
       issue_status: issue.status.name,
       field_name: field_name,
-      field_value: field_value
+      field_value: field_value,
+      field_exhausted: field_exhausted,
+      can_decrement: field_name.present? && !field_exhausted && issue.notes_addable?(User.current)
     )
   end
 
@@ -156,9 +161,20 @@ class QrScannerController < ApplicationController
   # Always a plain 200 with a `status` field, not a matching HTTP status
   # per outcome - the page only ever branches on `status`, and this keeps
   # `fetch`'s own success/failure handling (network-level, in show.erb)
-  # cleanly separate from "did the scan itself succeed".
-  def render_scan_result(status, message, issue = nil)
-    render json: { status: status, message: message, issue_id: issue&.id, issue_subject: issue&.subject }
+  # cleanly separate from "did the scan itself succeed". field_name/value
+  # are only ever set on a genuine success (see the caller) - they exist
+  # purely so inspect.html.erb's "Decrement" button, which posts here
+  # too, can show the field's fresh value without a second round trip;
+  # show.html.erb's own plain success/error scanner ignores them.
+  def render_scan_result(status, message, issue = nil, field_name: nil, field_value: nil)
+    render json: {
+      status: status,
+      message: message,
+      issue_id: issue&.id,
+      issue_subject: issue&.subject,
+      field_name: field_name,
+      field_value: field_value
+    }
   end
 
   # field_name/field_value are nil whenever the configured field either
@@ -167,7 +183,7 @@ class QrScannerController < ApplicationController
   # `scan` treats "field missing" as unremarkable for a decrement that
   # already failed for some other reason.
   def render_inspect_result(status, message: nil, issue_id: nil, issue_subject: nil, issue_status: nil,
-                             field_name: nil, field_value: nil)
+                             field_name: nil, field_value: nil, field_exhausted: nil, can_decrement: false)
     render json: {
       status: status,
       message: message,
@@ -175,7 +191,9 @@ class QrScannerController < ApplicationController
       issue_subject: issue_subject,
       issue_status: issue_status,
       field_name: field_name,
-      field_value: field_value
+      field_value: field_value,
+      field_exhausted: field_exhausted,
+      can_decrement: can_decrement
     }
   end
 end

@@ -1,20 +1,24 @@
 # organikum_qr_scanner
 
-A Redmine 6+ plugin: two pages, both turning on the device's camera right
-in the browser and decoding QR codes using
+A Redmine 6+ plugin: two independent scanner pages, both turning on the
+device's camera right in the browser and decoding QR codes using
 [html5-qrcode](https://github.com/mebjas/html5-qrcode).
 
-- `/qr_scanner` (**decrement mode**) - a successful scan that resolves to
-  one of this Redmine's own issues decrements a decrementable custom
-  field (chosen once in Settings) on that issue.
-- `/qr_scanner/inspect` (**inspect mode**) - a successful scan shows that
-  issue's subject, status, and the same field's current value, and
-  changes nothing at all.
+- `/qr_scanner` - always decrements a decrementable custom field (chosen
+  once in Settings) the moment a scan resolves to one of this Redmine's
+  own issues. No confirmation step - built for working through many
+  items quickly.
+- `/qr_scanner/inspect` - a scan shows that issue's subject, status, and
+  the same field's current value, as key/value pairs, with nothing
+  changed yet. Only an explicit tap on "Decrement" performs the write;
+  "Skip" moves on without touching anything.
 
-Both stay paused after a scan - showing the result right there on the
-page - until the operator taps to continue, rather than navigating away
-on every single scan. See "Design" for why these are two separate pages
-rather than one page with a mode flag.
+These are two different tools for two different situations, not two
+"modes" of one screen to flip between - see "Design" for why an earlier
+version that tried the mode-switch approach was dropped, and both stay
+paused after a scan, showing the result right there on the page, until
+the operator dismisses it - see "Design" for how dismissal differs
+between the two.
 
 **Status: sketch.** Deliberately minimal - see "Scope" below.
 
@@ -52,26 +56,33 @@ rather than one page with a mode flag.
   likely made the library request a camera resolution/aspect ratio mobile
   hardware couldn't satisfy, something a wide desktop webcam tolerates
   far more easily. The frame's height is left to follow the video's own
-  natural aspect ratio at 100% width instead. The result banner and "Scan
-  next" button are an absolutely-positioned overlay covering that frame,
-  not separate page elements below it - and deliberately a sibling of
-  `#qr-reader`, not a child placed inside it: the library clears and
-  rebuilds that element's own contents at points in its lifecycle
-  (start/pause/resume), so anything of ours living inside it would risk
-  being wiped out along with it.
-- **A scan result is posted, not navigated to** - `show.html.erb` submits
-  the decoded text to `POST /qr_scanner/scan` with `fetch`, not a real
-  form navigation, so the response (JSON: `status`/`message`) can be shown
-  right there on the scanner page instead of a redirect. The moment a code
-  decodes, `scanner.pause(true)` freezes the camera preview and stops
-  decoding - both so the same code sitting in view can't fire a second
-  scan, and as a visible "this is paused" signal in its own right. Nothing
-  resumes it but the operator tapping "Scan next", which calls
-  `scanner.resume()` - fast (no camera/permission re-acquisition, unlike
-  tearing down and recreating the scanner) and deliberate (no fixed
-  cooldown to wait out). A successful scan also triggers
-  `navigator.vibrate()` where supported, as a signal that doesn't depend
-  on the operator looking at the screen at that exact moment.
+  natural aspect ratio at 100% width instead. The result overlay covers
+  that same frame rather than sitting below it as separate page elements,
+  and is deliberately a sibling of `#qr-reader`, not a child placed inside
+  it: the library clears and rebuilds that element's own contents at
+  points in its lifecycle (start/pause/resume), so anything of ours living
+  inside it would risk being wiped out along with it.
+- **A scan result is posted, not navigated to** - both pages submit the
+  decoded text with `fetch`, not a real form navigation, so the response
+  can be shown right there on the scanner page instead of a redirect. The
+  moment a code decodes, `scanner.pause(true)` freezes the camera preview
+  and stops decoding - both so the same code sitting in view can't fire a
+  second scan, and as a visible "this is paused" signal in its own right.
+  A successful decrement also triggers `navigator.vibrate()` where
+  supported, as a signal that doesn't depend on the operator looking at
+  the screen at that exact moment.
+- **Dismissing the result differs between the two pages, on purpose.**
+  `/qr_scanner` never has a real decision to make - it always just
+  decrements and reports what happened - so the *entire overlay* is the
+  "continue" control: tapping anywhere on it calls `scanner.resume()`.
+  `/qr_scanner/inspect` does have a decision (decrement or not), so it
+  never uses an ambiguous tap-anywhere gesture there: "Decrement" and
+  "Skip" are their own explicit, separately labeled buttons, precisely so
+  glancing at the screen or an imprecise tap can't be mistaken for (or
+  substitute for) a deliberate choice to write something. Once a decrement
+  actually happens (or fails), inspect's overlay switches to a single
+  outcome message with just one button, `resume()`-bound the same way
+  `/qr_scanner`'s tap is - there's nothing left to decide at that point.
 - **A scan resolves to a specific, permission-checked local Issue before
   anything else happens.** `QrScannerController#issue_from_scanned_url`
   only ever recognizes a URL whose path matches this Redmine's own
@@ -79,10 +90,7 @@ rather than one page with a mode flag.
   can't be used to probe for issues the current user isn't allowed to see,
   and a QR code that isn't a recognized local issue URL (a stray URL, a
   non-URL QR code, garbage) is simply rejected rather than acted on in any
-  way. An earlier version of this plugin instead handed whatever text was
-  decoded straight to `window.location.href` - harmless when the only
-  consequence was "the browser navigates somewhere", but not once scanning
-  could also trigger a write.
+  way.
 - **Checks, in order: the issue actually has the configured field, then
   write permission, then whether it's already at zero** - `add_issue_notes`
   is the permission checked (via `Issue#notes_addable?`), matching exactly
@@ -92,21 +100,27 @@ rather than one page with a mode flag.
   persisted value rather than re-derived from journal history - the other
   plugin already keeps that value fresh on every save, so there's nothing
   to recompute here.
-- **Inspect mode is a genuinely separate controller action, not the same
-  one with a flag** - `QrScannerController#inspect_scan` contains no code
-  path that calls `init_journal`/`save!` at all, full stop. This is
-  stronger than a shared action gated by an "am I in inspect mode?"
-  check: a bug in that kind of check (stale state, a mode toggle that
-  doesn't reset, a future edit that forgets to guard a new code path) is
-  exactly the sort of thing that could turn an inspection into an
-  accidental decrement, and separating by controller action removes the
-  possibility at the code level rather than relying on a runtime check to
-  catch it. The two pages still *feel* like one tool with a mode switch -
-  each has a loud, differently-colored banner naming its own mode with a
-  link to the other (`show.html.erb` / `inspect.html.erb`) - but
-  switching is a real page navigation, never a client-side toggle, so the
-  page can't end up believing it's in one mode while posting to the
-  other's endpoint.
+- **`inspect_scan` (what a scan on the inspect page hits) contains no
+  code path that writes anything, full stop** - not "the same action with
+  a flag that skips the write", a genuinely separate one that can't. The
+  page's "Decrement" button posts to a second, different endpoint -
+  `POST /qr_scanner/scan`, the *exact same* one `/qr_scanner`'s own
+  scanner uses - with the same decoded URL, so the only path to a write
+  anywhere on the inspect page is one explicit, labeled button triggering
+  the one action that was always allowed to write.
+  - An earlier version tried to unify both pages into one, with a loud
+    mode-switch banner and a real page navigation between "decrement
+    mode" and "inspect mode" (navigation, rather than a client-side
+    toggle, specifically so the page could never end up believing it was
+    in one mode while posting to the other's endpoint). It was dropped
+    for two reasons: switching required the browser to re-acquire the
+    camera stream from scratch every time (no permission re-prompt in
+    practice, but a real, noticeable delay), and the banner itself ate
+    into the limited screen space around a camera frame that's already
+    competing with Redmine's own header for room on a phone screen.
+    Splitting into two purpose-built tools instead of one with a mode
+    removes the need to switch often at all - you pick the one suited to
+    what you're about to do - and removes the banner along with it.
 - **The library is vendored, not pulled from a CDN or Redmine's plugin
   asset pipeline.** `assets/javascripts/html5-qrcode.min.js` is the
   project's own official minified UMD build (from the `html5-qrcode` npm
@@ -125,12 +139,14 @@ rather than one page with a mode flag.
 
 ## Scope - what this deliberately does NOT do yet
 
-- No menu entry / link to `/qr_scanner` anywhere in Redmine's UI yet -
-  reach it by typing the URL directly for now.
+- No menu entry / link to either page anywhere in Redmine's UI yet -
+  reach them by typing the URL directly for now. The two pages don't
+  link to each other either (see "Design" on why the mode-switch banner
+  that used to do that was dropped).
 - Only one field, globally, can be configured - not one per tracker or
   per project. Scanning an issue whose tracker doesn't carry that field
-  is reported as an error (`error_qr_scanner_field_missing`), not ignored
-  silently.
+  is reported as an error (`error_qr_scanner_field_missing`) on
+  `/qr_scanner`, or simply not shown as a line on `/qr_scanner/inspect`.
 - No generation/printing of QR codes - this plugin only reads them. Where
   the codes it scans come from is a separate concern.
 - No automated tests.
@@ -154,31 +170,37 @@ rather than one page with a mode flag.
    `redmine-custom-decrement-field`'s "Decrementable integer" format are
    offered; if none exist yet, create one there first.
 
-4. Log in and visit `/qr_scanner` (decrement) or `/qr_scanner/inspect`
-   (read-only) over HTTPS - each links to the other. Grant the camera
-   permission prompt, then point it at a QR code encoding one of this
-   Redmine's issue URLs.
+4. Log in and visit `/qr_scanner` (always decrements) or
+   `/qr_scanner/inspect` (look first, decrement optionally) over HTTPS.
+   Grant the camera permission prompt, then point it at a QR code
+   encoding one of this Redmine's issue URLs.
 
 ## Structure
 
-- `config/routes.rb` - `GET /qr_scanner` + `POST /qr_scanner/scan`
-  (decrement mode), `GET /qr_scanner/inspect` +
-  `POST /qr_scanner/inspect_scan` (inspect mode).
+- `config/routes.rb` - `GET /qr_scanner` + `POST /qr_scanner/scan`,
+  `GET /qr_scanner/inspect` + `POST /qr_scanner/inspect_scan`.
 - `app/controllers/qr_scanner_controller.rb` - `show`/`inspect` render
   their respective pages; `scan` resolves the decoded URL to an issue,
   runs the field/permission/exhausted checks, and always answers with
-  JSON, decremented or not; `inspect_scan` resolves the same way but only
-  ever reads (subject/status/field value), never writes. Also reads and
-  memoizes the vendored library's source.
-- `app/views/qr_scanner/show.html.erb` / `inspect.html.erb` - the two
-  pages: a `<div>` for `Html5QrcodeScanner` to render into, a hidden form
-  pointed at that page's own endpoint, a mode banner linking to the other
-  page, a result overlay (hidden until a scan comes back), the inlined
-  library, and the JS wiring a scan to a `fetch` call, `scanner.pause(true)`,
-  and a "Scan next" button to `scanner.resume()`.
+  JSON, decremented or not - used directly by `/qr_scanner`'s scanner,
+  and by `/qr_scanner/inspect`'s "Decrement" button; `inspect_scan`
+  resolves the same way but only ever reads (subject/status/field
+  value/whether decrementing is currently offered), never writes. Also
+  reads and memoizes the vendored library's source.
+- `app/views/qr_scanner/show.html.erb` - the always-decrements page: a
+  `<div>` for `Html5QrcodeScanner`, a hidden form posting to
+  `POST /qr_scanner/scan`, a tap-anywhere result overlay, the inlined
+  library, and the JS wiring a scan to `fetch` + `scanner.pause(true)`.
+- `app/views/qr_scanner/inspect.html.erb` - the look-first page: the same
+  camera setup, two hidden forms (one for the read-only lookup every scan
+  does, one for the actual decrement - only ever submitted by the
+  "Decrement" button's own handler), a key/value result overlay
+  (`<dl>`-based) with "Decrement"/"Skip" buttons that switches to a
+  single outcome message + one button once a decrement has actually been
+  attempted.
 - `app/views/settings/_organikum_qr_scanner_settings.html.erb` - the one
   Settings field: which decrementable custom field to act on (read by
-  both modes).
+  both pages).
 - `assets/javascripts/html5-qrcode.min.js` +
   `html5-qrcode.LICENSE` - the vendored third-party library and its
   license (Apache-2.0), unmodified from the npm package.

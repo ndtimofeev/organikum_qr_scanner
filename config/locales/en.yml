@@ -1,13 +1,12 @@
 en:
   label_qr_scanner: "QR scanner"
   text_qr_scanner_hint: "Point the camera at a QR code for one of this Redmine's issues. On a successful scan, the configured field is decremented by 1."
-  text_qr_scanner_inspect_hint: "Point the camera at a QR code for one of this Redmine's issues. Nothing is changed - this only shows what's on it."
+  text_qr_scanner_inspect_hint: "Point the camera at a QR code for one of this Redmine's issues. Nothing changes until you choose to decrement."
+  text_qr_scanner_tap_to_continue: "Tap anywhere to scan the next one"
   button_qr_scanner_continue: "Scan next"
-
-  label_qr_scanner_mode_decrement: "DECREMENT MODE - scanning changes data"
-  label_qr_scanner_mode_inspect: "INSPECT MODE - read-only, nothing is changed"
-  link_qr_scanner_switch_to_inspect: "Switch to inspect (read-only)"
-  link_qr_scanner_switch_to_decrement: "Switch to decrement"
+  button_qr_scanner_decrement: "Decrement"
+  button_qr_scanner_skip: "Skip"
+  label_qr_scanner_issue_prefix: "Issue:"
   label_qr_scanner_status_prefix: "Status:"
 
   field_qr_scanner_custom_field: "Field to decrement"
