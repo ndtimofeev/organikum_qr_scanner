@@ -1,6 +1,4 @@
-<h2><%= l(:label_qr_scanner) %></h2>
-
-<p><%= l(:text_qr_scanner_inspect_hint) %></p>
+<h2><%= l(:label_qr_scanner_inspect) %></h2>
 
 <%# position: relative here, not on #qr-reader itself, so the result
     overlay below can cover exactly the frame Html5QrcodeScanner draws
@@ -25,7 +23,9 @@
       at all. %>
   <div id="qr-scan-result" class="qr-scan-result">
     <dl id="qr-scan-details" class="qr-scan-kv">
-      <dt><%= l(:label_qr_scanner_issue_prefix) %></dt>
+      <dt><%= l(:label_qr_scanner_issue_number_prefix) %></dt>
+      <dd id="qr-scan-issue-number"></dd>
+      <dt><%= l(:label_qr_scanner_issue_subject_prefix) %></dt>
       <dd id="qr-scan-subject"></dd>
       <dt><%= l(:label_qr_scanner_status_prefix) %></dt>
       <dd id="qr-scan-status"></dd>
@@ -109,7 +109,11 @@
      height is reset. */
   .qr-scan-buttons button {
     height: auto;
-    padding: 0.6em 1.6em;
+    /* Fixed rather than content-driven, so "Decrement"/"Decrementировать"
+       and "Skip"/"Пропустить" - very different lengths - end up the same
+       width instead of each hugging its own label. */
+    min-width: 11em;
+    padding: 0.6em 1em;
     font-size: 1.1em;
     border: none;
     border-radius: 4px;
@@ -139,6 +143,7 @@
 
     var resultEl = document.getElementById('qr-scan-result');
     var detailsEl = document.getElementById('qr-scan-details');
+    var issueNumberEl = document.getElementById('qr-scan-issue-number');
     var subjectEl = document.getElementById('qr-scan-subject');
     var statusEl = document.getElementById('qr-scan-status');
     var fieldNameEl = document.getElementById('qr-scan-field-name');
@@ -168,7 +173,8 @@
     function showInfo(data) {
       detailsEl.style.display = '';
       messageEl.style.display = 'none';
-      subjectEl.textContent = '#' + data.issue_id + ' ' + data.issue_subject;
+      issueNumberEl.textContent = '#' + data.issue_id;
+      subjectEl.textContent = data.issue_subject;
       statusEl.textContent = data.issue_status;
 
       if (data.field_name) {
