@@ -40,6 +40,9 @@
       <dt id="qr-scan-field-name"></dt>
       <dd id="qr-scan-field-value"></dd>
     </dl>
+    <p id="qr-scan-field-inconsistent-warning" class="qr-scan-inconsistent-warning">
+      <%= l(:text_qr_scanner_field_inconsistent) %>
+    </p>
     <p id="qr-scan-message"></p>
     <div class="qr-scan-buttons">
       <button type="button" id="qr-scan-decrement"><%= l(:button_qr_scanner_decrement) %></button>
@@ -121,6 +124,22 @@
 
   #qr-scan-message { font-size: 1.3em; margin-bottom: 0.5em; }
 
+  /* Hidden by default (see showInfo below) - only shown when the scanned
+     issue's field is flagged inconsistent. Amber rather than the overlay's
+     own red/green: this is neither the "success"/"error" outcome of a
+     decrement nor a reason the button below is disabled (see
+     QrScannerController#field_inconsistent? - it never affects
+     can_decrement), just a heads-up to go check the issue itself. */
+  .qr-scan-inconsistent-warning {
+    display: none;
+    margin: 0 0 1em 0;
+    padding: 0.4em 0.8em;
+    border-radius: 4px;
+    background: rgba(243, 237, 209, 0.95);
+    color: #6b4e00;
+    font-size: 0.95em;
+  }
+
   .qr-scan-buttons { display: flex; gap: 1em; justify-content: center; flex-wrap: wrap; }
   /* Same core-CSS-vs-<button> specificity issue as the decrement page -
      see that file's own history for the full explanation: Redmine's
@@ -168,6 +187,7 @@
     var statusEl = document.getElementById('qr-scan-status');
     var fieldNameEl = document.getElementById('qr-scan-field-name');
     var fieldValueEl = document.getElementById('qr-scan-field-value');
+    var inconsistentWarningEl = document.getElementById('qr-scan-field-inconsistent-warning');
     var messageEl = document.getElementById('qr-scan-message');
     var decrementButton = document.getElementById('qr-scan-decrement');
     var skipButton = document.getElementById('qr-scan-skip');
@@ -206,6 +226,7 @@
         fieldNameEl.style.display = 'none';
         fieldValueEl.style.display = 'none';
       }
+      inconsistentWarningEl.style.display = data.field_inconsistent ? '' : 'none';
 
       decrementButton.style.display = data.can_decrement ? '' : 'none';
       skipButton.textContent = <%= l(:button_qr_scanner_skip).to_json.html_safe %>;
@@ -215,6 +236,7 @@
 
     function showOutcome(status, message) {
       detailsEl.style.display = 'none';
+      inconsistentWarningEl.style.display = 'none';
       messageEl.style.display = '';
       messageEl.textContent = message;
       decrementButton.style.display = 'none';

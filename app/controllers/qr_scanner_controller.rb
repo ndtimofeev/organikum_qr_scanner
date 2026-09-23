@@ -50,7 +50,7 @@ class QrScannerController < ApplicationController
     current_value = issue.custom_value_for(field)&.value.to_i
     return render_scan_result(:error, l(:error_qr_scanner_exhausted), issue) if current_value <= 0
 
-    issue.init_journal(User.current, "#{token}:-1")
+    issue.init_journal(User.current, "#{token} : -1")
     issue.save!
 
     render_scan_result(:success, l(:notice_qr_scanner_decremented), issue, field_name: field.name,
@@ -77,10 +77,12 @@ class QrScannerController < ApplicationController
     field_name = nil
     field_value = nil
     field_exhausted = nil
+    field_inconsistent = nil
     if field && issue.available_custom_fields.include?(field)
       field_name = field.name
       field_value = issue.custom_value_for(field)&.value
       field_exhausted = field_value.to_i <= 0
+      field_inconsistent = field_inconsistent?(issue, field, field_value)
     end
 
     render_inspect_result(
@@ -91,6 +93,7 @@ class QrScannerController < ApplicationController
       field_name: field_name,
       field_value: field_value,
       field_exhausted: field_exhausted,
+      field_inconsistent: field_inconsistent,
       can_decrement: field_name.present? && !field_exhausted && issue.notes_addable?(User.current)
     )
   end
@@ -146,6 +149,37 @@ class QrScannerController < ApplicationController
     Issue.visible.find_by(id: match[1])
   end
 
+  # True if this field's history looks tampered with outside either
+  # scanner's own write path or redmine-custom-decrement-field's button -
+  # a negative value, or the same dedup literal recorded on more than one
+  # decrement (see that plugin's StockCalculator#inconsistent?, which this
+  # mirrors). Purely informational, shown on the Inspector page only
+  # (see inspect.html.erb) - it never affects can_decrement above, the
+  # same way that plugin's own button stays enabled/disabled purely on
+  # #exhausted?, not on this.
+  #
+  # This duplicates a little regex logic from that plugin rather than
+  # depending on its Ruby code, on purpose - see this controller's own
+  # header comment on why: reading format_store/journal notes directly is
+  # what keeps this plugin working (with this diagnostic simply never
+  # firing) whether or not that plugin happens to be installed.
+  def field_inconsistent?(issue, field, field_value)
+    return true if field_value.to_i.negative?
+
+    token = field.format_store['decrement_token']
+    return false if token.blank?
+
+    pattern = /#{Regexp.escape(token)}\s*:\s*[+-]?\d+\s+([A-Za-z0-9_.~-]+)/
+    seen_counts = Hash.new(0)
+    issue.journals.each do |journal|
+      next if journal.notes.blank?
+
+      journal.notes.scan(pattern).each { |(literal)| seen_counts[literal] += 1 }
+    end
+
+    seen_counts.any? { |_, count| count > 1 }
+  end
+
   # nil if Settings hasn't been filled in yet, or if the field it names
   # was since deleted or had its format changed away from
   # 'decrementable_int' (e.g. redmine-custom-decrement-field was removed -
@@ -183,7 +217,8 @@ class QrScannerController < ApplicationController
   # `scan` treats "field missing" as unremarkable for a decrement that
   # already failed for some other reason.
   def render_inspect_result(status, message: nil, issue_id: nil, issue_subject: nil, issue_status: nil,
-                             field_name: nil, field_value: nil, field_exhausted: nil, can_decrement: false)
+                             field_name: nil, field_value: nil, field_exhausted: nil, field_inconsistent: nil,
+                             can_decrement: false)
     render json: {
       status: status,
       message: message,
@@ -193,6 +228,7 @@ class QrScannerController < ApplicationController
       field_name: field_name,
       field_value: field_value,
       field_exhausted: field_exhausted,
+      field_inconsistent: field_inconsistent,
       can_decrement: can_decrement
     }
   end

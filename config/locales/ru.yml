@@ -22,3 +22,4 @@ ru:
   error_qr_scanner_no_permission: "У вас нет прав на это действие с данной задачей"
   error_qr_scanner_exhausted: "Значение уже равно нулю (или меньше), списание недоступно"
   error_qr_scanner_request_failed: "Запрос не выполнен - проверьте соединение и попробуйте снова"
+  text_qr_scanner_field_inconsistent: "История этого поля неконсистентна - подробности смотрите в задаче"

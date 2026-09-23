@@ -36,8 +36,25 @@ between the two.
   offers nothing to pick, and this plugin never finds a field to act on -
   it degrades to "does nothing", not a crash. The actual decrement is done
   the same way that plugin's own button does it: add an issue comment
-  containing `"#{token}:-1"` and let its own `after_save` hooks derive the
-  new value from history, exactly as if a human had typed that comment.
+  containing `"#{token} : -1"` (spaced around the colon, matching that
+  plugin's own current writers - its parser stays tolerant of the
+  unspaced form too, for history written before this) and let its own
+  `after_save` hooks derive the new value from history, exactly as if a
+  human had typed that comment.
+- **Inspector also flags an inconsistent field**, the same concept
+  `redmine-custom-decrement-field` surfaces on the issue itself (a
+  negative value, or the same decrement literal recorded more than once -
+  both only reachable by hand-editing a comment, never through either
+  scanner's own write path or that plugin's button). Detecting it still
+  doesn't touch that plugin's Ruby code - `QrScannerController#field_inconsistent?`
+  duplicates the small amount of regex logic involved (reading
+  `field.format_store['decrement_token']` and `issue.journals` directly,
+  the same ingredients `decrement_target_field`/`scan` already read)
+  rather than depending on its `StockCalculator` class. Purely
+  informational: it's shown as a line on the result overlay and never
+  affects whether the "Decrement" button itself is offered - the same
+  way that plugin's own button stays gated on being exhausted, not on
+  this.
 - **Scanning happens entirely in the browser**, via camera access
   (`getUserMedia`) and client-side decoding - no image is ever uploaded to
   the server. `Html5QrcodeScanner` (the library's own high-level widget)
@@ -208,8 +225,9 @@ between the two.
   JSON, decremented or not - used directly by `/qr_scanner`'s scanner,
   and by `/qr_scanner/inspect`'s "Decrement" button; `inspect_scan`
   resolves the same way but only ever reads (subject/status/field
-  value/whether decrementing is currently offered), never writes. Also
-  reads and memoizes the vendored library's source.
+  value/whether decrementing is currently offered, plus whether the
+  field's history looks inconsistent), never writes. Also reads and
+  memoizes the vendored library's source.
 - `app/views/qr_scanner/show.html.erb` - the always-decrements page: a
   heading with a small link to Inspector, a `<div>` for
   `Html5QrcodeScanner`, a hidden form posting to `POST /qr_scanner/scan`,

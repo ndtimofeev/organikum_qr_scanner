@@ -22,3 +22,4 @@ en:
   error_qr_scanner_no_permission: "You don't have permission to do that on this issue"
   error_qr_scanner_exhausted: "Value is already zero (or less), decrement is unavailable"
   error_qr_scanner_request_failed: "Request failed - check your connection and try again"
+  text_qr_scanner_field_inconsistent: "This field's history is inconsistent - check the issue for details"
